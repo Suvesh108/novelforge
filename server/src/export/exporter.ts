@@ -38,6 +38,7 @@ export async function renderChapterPDF(
       size: sizeMap[pageSize] || "LETTER",
       margins: { top: 72, bottom: 72, left: 72, right: 72 },
       bufferPages: true, // Enables page numbering dynamically later
+      autoFirstPage: true,
     });
 
     const chunks: Buffer[] = [];
@@ -75,19 +76,24 @@ export async function renderChapterPDF(
       });
     }
 
-    // Dynamic Page Numbering in footer
+    // Flush all buffered content pages FIRST, then stamp page numbers
+    // This is the critical step — without flushPages(), bufferedPageRange()
+    // returns an incomplete count, which creates blank placeholder pages.
+    doc.flushPages();
+
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
       doc
         .font("Times-Roman")
         .fontSize(9)
-        .text(`Page ${i + 1}`, 0, doc.page.height - 50, { align: "center" });
+        .text(`Page ${i - range.start + 1}`, 0, doc.page.height - 50, { align: "center", lineBreak: false });
     }
 
     doc.end();
   });
 }
+
 
 /**
  * Strategy A: Render individual chapter PDFs using pdfkit, then merge/compile using pdf-lib
