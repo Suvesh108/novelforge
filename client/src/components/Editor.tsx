@@ -185,6 +185,18 @@ export default function Editor() {
     window.open(`/api/novels/${currentNovel.id}/chapters/${activeChapter.id}/export/${exportFormat}`);
   };
 
+  if (!currentNovel) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-md w-full shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            No project selected. Please choose or create a project from the Dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden">
       {/* Left Sidebar - Chapters list with actions */}

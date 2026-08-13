@@ -842,6 +842,88 @@ app.post("/api/novels/import", async (req, res) => {
   }
 });
 
+app.post("/api/novels/:id/expand-bible", async (req, res) => {
+  const { idea, providerSettings } = req.body;
+  const novelId = req.params.id;
+
+  if (!idea) {
+    return res.status(400).json({ error: "Story idea is required." });
+  }
+
+  try {
+    const novel = await prisma.novel.findUnique({
+      where: { id: novelId },
+      include: {
+        mainCharacter: true,
+        world: true,
+        magicSystem: true,
+        storyRequirements: true,
+        chapters: { orderBy: { chapterNumber: "asc" } }
+      }
+    });
+
+    if (!novel) return res.status(404).json({ error: "Novel not found" });
+
+    const provider = ProviderFactory.getProvider(
+      providerSettings ? JSON.stringify(providerSettings) : null
+    );
+
+    const { systemPrompt, userPrompt } = assemblePrompt("EXPAND_STORY_BIBLE", {
+      novel: novel as any,
+      storyBible: novel.storyBible,
+      instruction: idea,
+    } as any);
+
+    const aiOutput = await provider.generate(userPrompt, systemPrompt);
+    const jsonStart = aiOutput.indexOf("{");
+    const jsonEnd = aiOutput.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("AI failed to return structured expansion config. Output was:\n" + aiOutput);
+    }
+
+    const data = JSON.parse(aiOutput.slice(jsonStart, jsonEnd + 1));
+
+    const currentChaptersCount = novel.chapters.length;
+    const nextChapterNumber = currentChaptersCount + 1;
+
+    const updatedNovel = await prisma.novel.update({
+      where: { id: novelId },
+      data: {
+        storyBible: data.updatedStoryBible || novel.storyBible,
+        chapters: {
+          create: (data.newChapters || []).map((ch: any, idx: number) => ({
+            chapterNumber: nextChapterNumber + idx,
+            title: ch.title || `Chapter ${nextChapterNumber + idx}`,
+            status: "outline",
+            outline: {
+              create: {
+                chapterNumber: nextChapterNumber + idx,
+                title: ch.title || `Chapter ${nextChapterNumber + idx}`,
+                mainEvents: JSON.stringify([ch.outline || "Outline plan..."]),
+              }
+            }
+          }))
+        }
+      },
+      include: {
+        mainCharacter: true,
+        world: true,
+        magicSystem: true,
+        storyRequirements: true,
+        chapterConfig: true,
+        chapters: {
+          orderBy: { chapterNumber: "asc" }
+        }
+      }
+    });
+
+    res.json(updatedNovel);
+  } catch (error: any) {
+    console.error("Expand Story Bible error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve frontend SPA fallback in production
 app.get("*", (req, res) => {
   res.sendFile(path.join(process.cwd(), "server", "dist", "public", "index.html"));

@@ -301,6 +301,30 @@ ${ctx.selectedText}
 ---`;
       break;
     }
+
+    case "EXPAND_STORY_BIBLE": {
+      systemInstructions = `You are a professional Story Architect.
+Your task is to expand the existing Story Bible for a novel with the writer's new idea or plot arc.
+
+You must return a valid JSON object matching the following structure. Output ONLY the JSON block, no other text or commentary:
+{
+  "updatedStoryBible": "The full, expanded Story Bible text combining the original bible material and incorporating the new ideas/arcs seamlessly.",
+  "newChapters": [
+    {
+      "title": "New Chapter Title",
+      "outline": "Outline of events for this new chapter segment"
+    }
+  ]
+}`;
+      userPrompt = `Existing Story Bible:
+---
+${ctx.storyBible || ""}
+---
+
+New Idea/Arc to incorporate:
+"${ctx.instruction}"`;
+      break;
+    }
   }
 
   return { systemPrompt: systemInstructions, userPrompt };

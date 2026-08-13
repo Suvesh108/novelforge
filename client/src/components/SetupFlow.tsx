@@ -34,7 +34,31 @@ export default function SetupFlow() {
     if (currentNovel && !question && !isGenerating) {
       loadNextQuestion();
     }
-  }, [currentNovel]);
+  }, [currentNovel?.id]);
+
+  useEffect(() => {
+    if (currentNovel) {
+      setPremise(currentNovel.premise || "");
+      setGenre(currentNovel.genre || "");
+      setSubgenre(currentNovel.subgenre || "");
+      setTone(JSON.parse(currentNovel.tone || "[]").join(", "));
+      setThemes(JSON.parse(currentNovel.themes || "[]").join(", "));
+      setCharName(currentNovel.mainCharacter?.name || "");
+      setCharPersonality(currentNovel.mainCharacter?.personality || "");
+      setCharGoals(currentNovel.mainCharacter?.goals || "");
+      setWorldName(currentNovel.world?.worldName || "");
+      setWorldType(currentNovel.world?.worldType || "");
+      setWorldGeography(currentNovel.world?.geography || "");
+      setMagicSource(currentNovel.magicSystem?.source || "");
+      setMagicRules(currentNovel.magicSystem?.manaRules || "");
+      setTotalChapters(currentNovel.chapterConfig?.totalChapters || 10);
+      setTargetWords(currentNovel.chapterConfig?.targetWordCount || 3000);
+      
+      setQuestion("");
+      setAnswer("");
+      setQaHistory([]);
+    }
+  }, [currentNovel?.id]);
 
   const loadNextQuestion = async () => {
     if (!currentNovel) return;
@@ -103,6 +127,18 @@ export default function SetupFlow() {
     await generateOutline(currentNovel.id);
     setView("bible");
   };
+
+  if (!currentNovel) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-md w-full shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            No project selected. Please choose or create a project from the Dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-8 h-full">

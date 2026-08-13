@@ -66,6 +66,7 @@ interface AppStore {
   generateChapter: (id: string, chapterNumber: number) => Promise<void>;
   generateWholeNovel: (id: string) => Promise<void>;
   importNovel: (filename: string, base64Data: string, providerSettings: any) => Promise<any>;
+  expandStoryBible: (id: string, idea: string, providerSettings: any) => Promise<void>;
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -447,6 +448,29 @@ export const useStore = create<AppStore>((set, get) => ({
       });
       await get().fetchNovels();
       return novel;
+    } catch (err: any) {
+      set({ isGenerating: false, error: err.message });
+      throw err;
+    }
+  },
+
+  expandStoryBible: async (id, idea, providerSettings) => {
+    try {
+      set({ isGenerating: true, error: null });
+      const res = await fetch(`/api/novels/${id}/expand-bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea, providerSettings }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to expand story bible.");
+      }
+
+      const updated = await res.json();
+      set({ currentNovel: updated, isGenerating: false });
+      await get().fetchNovels();
     } catch (err: any) {
       set({ isGenerating: false, error: err.message });
       throw err;

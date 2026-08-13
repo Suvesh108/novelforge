@@ -62,6 +62,11 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
     - Developed a **Draft Book** sequential bulk generator that walks through each novel chapter dynamically, streaming the total book progress overlays on the editor.
     - Fixed draft generation display lag by forcing immediate copy of active chapter contents from Zustand store upon completion of generator triggers in [Editor.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Editor.tsx).
 
+13. **Magic Story Import & Document Parsing:**
+    - Integrated `mammoth` and `pdf-parse` libraries into [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) to parse raw text strings from PDF, Word (.docx), and text (.txt, .md) file attachments.
+    - Added an AI story extractor prompt block `"IMPORT_STORY"` in [assembler.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/prompts/assembler.ts) to read the extracted file strings and output complete, structured JSON representations of the story bibles, characters, settings, and outlines.
+    - Built a dashboard setup toggle in [Dashboard.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Dashboard.tsx) allowing users to either walk through the adaptive questionnaire manually, or upload a synopsis/notes file directly to build and launch the project workspace in seconds.
+
 ## Verification & Testing
 
 1. **Compilation Check:**
