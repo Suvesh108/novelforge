@@ -133,6 +133,9 @@ app.patch("/api/novels/:id", async (req, res) => {
         magicSystem: true,
         storyRequirements: true,
         chapterConfig: true,
+        chapters: {
+          orderBy: { chapterNumber: "asc" }
+        }
       },
     });
     res.json(updated);
@@ -400,57 +403,53 @@ app.post("/api/novels/:id/chapters/:number/generate", async (req, res) => {
       res.write(chunk);
     });
 
+    try {
+      const { systemPrompt: summarySystem, userPrompt: summaryUser } = assemblePrompt("SUMMARIZE", {
+        novel,
+        selectedText: fullText,
+      });
+      const summaryText = await provider.generate(summaryUser, summarySystem);
+
+      // Update database: create new version and store summary
+      const versionCount = await prisma.chapterVersion.count({ where: { chapterId: chapter.id } });
+      const newVersion = await prisma.chapterVersion.create({
+        data: {
+          chapterId: chapter.id,
+          versionNumber: versionCount + 1,
+          content: fullText,
+          generationMode: "normal",
+        },
+      });
+
+      await prisma.chapter.update({
+        where: { id: chapter.id },
+        data: {
+          content: fullText,
+          wordCount: fullText.split(/\s+/).filter(Boolean).length,
+          status: "drafted",
+          currentVersionId: newVersion.id,
+        },
+      });
+
+      await prisma.chapterSummary.upsert({
+        where: { chapterId: chapter.id },
+        create: { chapterId: chapter.id, summaryText },
+        update: { summaryText },
+      });
+
+      // Parse state updates if AI output contains states
+      await prisma.characterState.create({
+        data: {
+          chapterId: chapter.id,
+          characterId: novel.mainCharacter?.id || "protagonist",
+          emotionalState: "Reflective",
+        },
+      });
+    } catch (err) {
+      console.error("Auto-summarization or database update failed:", err);
+    }
+
     res.end();
-
-    // After response is finished, trigger the background auto-summarizer (Phase 6 requirement)
-    setTimeout(async () => {
-      try {
-        const { systemPrompt: summarySystem, userPrompt: summaryUser } = assemblePrompt("SUMMARIZE", {
-          novel,
-          selectedText: fullText,
-        });
-        const summaryText = await provider.generate(summaryUser, summarySystem);
-
-        // Update database: create new version and store summary
-        const versionCount = await prisma.chapterVersion.count({ where: { chapterId: chapter.id } });
-        const newVersion = await prisma.chapterVersion.create({
-          data: {
-            chapterId: chapter.id,
-            versionNumber: versionCount + 1,
-            content: fullText,
-            generationMode: "normal",
-          },
-        });
-
-        await prisma.chapter.update({
-          where: { id: chapter.id },
-          data: {
-            content: fullText,
-            wordCount: fullText.split(/\s+/).filter(Boolean).length,
-            status: "drafted",
-            currentVersionId: newVersion.id,
-          },
-        });
-
-        await prisma.chapterSummary.upsert({
-          where: { chapterId: chapter.id },
-          create: { chapterId: chapter.id, summaryText },
-          update: { summaryText },
-        });
-
-        // Parse state updates if AI output contains states (simple regex search)
-        // ponytail: fallback if parser fails
-        await prisma.characterState.create({
-          data: {
-            chapterId: chapter.id,
-            characterId: novel.mainCharacter?.id || "protagonist",
-            emotionalState: "Reflective",
-          },
-        });
-      } catch (err) {
-        console.error("Auto-summarization engine background failed:", err);
-      }
-    }, 100);
   } catch (error: any) {
     if (!res.headersSent) {
       res.status(500).json({ error: error.message });

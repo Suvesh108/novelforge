@@ -64,6 +64,7 @@ interface AppStore {
   generateStoryBible: (id: string) => Promise<string>;
   generateOutline: (id: string) => Promise<void>;
   generateChapter: (id: string, chapterNumber: number) => Promise<void>;
+  generateWholeNovel: (id: string) => Promise<void>;
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -378,6 +379,44 @@ export const useStore = create<AppStore>((set, get) => ({
 
       set({ isGenerating: false, streamingText: "" });
       await get().fetchNovel(id);
+    } catch (err: any) {
+      set({ isGenerating: false, streamingText: "", error: err.message });
+    }
+  },
+
+  generateWholeNovel: async (id) => {
+    const novel = get().currentNovel;
+    if (!novel || !novel.chapters) return;
+    
+    set({ isGenerating: true, error: null });
+    try {
+      for (const ch of novel.chapters) {
+        set({ streamingText: `[Drafting Chapter ${ch.chapterNumber}: ${ch.title}...]` });
+        
+        const res = await fetch(`/api/novels/${id}/chapters/${ch.chapterNumber}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ writingMode: get().activeWritingMode }),
+        });
+
+        if (!res.ok) throw new Error(`Chapter ${ch.chapterNumber} generation failed`);
+        if (!res.body) continue;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let streamResult = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value, { stream: true });
+          streamResult += text;
+          set({ streamingText: `[Drafting Chapter ${ch.chapterNumber}: ${ch.title}...]\n\n${streamResult}` });
+        }
+
+        await get().fetchNovel(id);
+      }
+      set({ isGenerating: false, streamingText: "" });
     } catch (err: any) {
       set({ isGenerating: false, streamingText: "", error: err.message });
     }

@@ -36,6 +36,7 @@ export default function Editor() {
     duplicateChapter,
     reorderChapter,
     viewHistory,
+    generateWholeNovel,
   } = useStore();
 
   const [activeChapter, setActiveChapter] = useState<any>(null);
@@ -107,6 +108,11 @@ export default function Editor() {
   const triggerGenerate = async () => {
     if (!currentNovel || !activeChapter) return;
     await generateChapter(currentNovel.id, activeChapter.chapterNumber);
+  };
+
+  const triggerGenerateWhole = async () => {
+    if (!currentNovel) return;
+    await generateWholeNovel(currentNovel.id);
   };
 
   const triggerAiEdit = async (task: string) => {
@@ -401,14 +407,25 @@ export default function Editor() {
               </select>
             </div>
 
-            <button
-              onClick={triggerGenerate}
-              disabled={isGenerating}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow-sm transition disabled:opacity-50"
-            >
-              {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              Generate Base Chapter Draft
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={triggerGenerate}
+                disabled={isGenerating}
+                className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 rounded-lg text-xs shadow-sm transition disabled:opacity-50"
+              >
+                {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                Generate Draft
+              </button>
+              <button
+                onClick={triggerGenerateWhole}
+                disabled={isGenerating}
+                className="flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-semibold py-2 px-3 rounded-lg text-xs transition disabled:opacity-50"
+                title="Draft all chapters sequentially"
+              >
+                {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+                Draft Book
+              </button>
+            </div>
 
             <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
               <h3 className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wide">
