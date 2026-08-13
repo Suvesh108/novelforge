@@ -108,11 +108,27 @@ export default function Editor() {
   const triggerGenerate = async () => {
     if (!currentNovel || !activeChapter) return;
     await generateChapter(currentNovel.id, activeChapter.chapterNumber);
+    
+    const updatedNovel = useStore.getState().currentNovel;
+    if (updatedNovel) {
+      const ch = updatedNovel.chapters?.find((c) => c.id === activeChapter.id);
+      if (ch) {
+        setContent(ch.content || "");
+      }
+    }
   };
 
   const triggerGenerateWhole = async () => {
     if (!currentNovel) return;
     await generateWholeNovel(currentNovel.id);
+    
+    const updatedNovel = useStore.getState().currentNovel;
+    if (updatedNovel && activeChapter) {
+      const ch = updatedNovel.chapters?.find((c) => c.id === activeChapter.id);
+      if (ch) {
+        setContent(ch.content || "");
+      }
+    }
   };
 
   const triggerAiEdit = async (task: string) => {

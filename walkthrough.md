@@ -49,7 +49,7 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
 10. **Multi-Key Registry & Self-Test Validations:**
     - Expanded supported providers list to include: **Anthropic, Groq, Mistral, and Cohere**.
     - Implemented a `+` key registration panel inside the API settings modal in [App.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/App.tsx) to store up to 10 keys per provider in browser local storage.
-    - Built a backend verification endpoint `POST /api/test-models` in [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) that performs real-time parallel model generation requests (max 1 output token, 3.5s timeout) to detect working configurations.
+    - Built a verification endpoint `POST /api/test-models` in [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) that performs parallel model generation requests (max 1 output token, 3.5s timeout) to detect working configurations.
     - Dynamic dropdown elements display only verified models accessible under the saved key's billing tier (e.g. filters out paid models if using a free tier key).
 
 11. **Text Formatting Cleanups & Layout Spacers:**
