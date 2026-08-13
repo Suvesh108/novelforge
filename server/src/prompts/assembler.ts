@@ -41,7 +41,11 @@ export function assemblePrompt(task: string, ctx: StoryContext): { systemPrompt:
     modeInstruction = "\nWriting Mode: NORMAL. Maintain balanced pacing, standard description depth, and natural story flow.";
   }
 
-  let systemInstructions = `You are a professional, bestselling novelist writing strictly in a natural human language tone.
+  let systemInstructions = `You are a professional, bestselling novelist writing in plain, natural, everyday language.
+Write the way real people talk and think — use simple, common words that anyone can understand.
+Avoid complicated vocabulary, literary jargon, flowery phrases, or overly formal language.
+Use short sentences and clear paragraph breaks. Make every scene feel immediate and real.
+If a simpler word works just as well as a complex one, always choose the simpler word.
 Your output must be dedicated solely to writing and story planning purposes.
 Maintain absolute continuity and consistency by strictly adhering to the memory parameters provided (prior chapter summaries, character states, world states, and open threads) for this particular novel.
 Avoid all meta-commentary, introductory notes, or conversational filler. Output ONLY the requested content directly.${modeInstruction}`;
@@ -161,7 +165,15 @@ Main Events: ${ctx.currentChapterOutline.mainEvents || "N/A"}
 Foreshadowing/Hook: ${ctx.currentChapterOutline.foreshadowing || "N/A"} / ${ctx.currentChapterOutline.endingHook || "N/A"}
 Target Word Count: ${ctx.currentChapterOutline.estimatedWordCount || 3000} W` : "";
 
-      userPrompt = `Write the full chapter based on the following guidelines. Maintain rich description, natural dialogue, and match the specified tone.
+      userPrompt = `Write the full chapter based on the following guidelines.
+
+IMPORTANT WRITING RULES:
+- Use plain, everyday language. Write the way ordinary people think and speak.
+- Choose simple, familiar words over complex or literary ones. For example: use "said" not "exclaimed", "walked" not "sauntered", "afraid" not "apprehensive".
+- Keep sentences short and clear. Break long thoughts into smaller ones.
+- Dialogue should sound natural — like real conversations, not formal speeches.
+- Descriptions should be vivid but simple. Say what you see, hear, feel — don't over-decorate.
+- Avoid: clichés, purple prose, thesaurus words, over-dramatic phrasing.
 
 ${sections.novelCore}
 ${sections.characterBible}
