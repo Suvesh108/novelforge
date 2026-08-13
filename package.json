@@ -1,0 +1,48 @@
+{
+  "name": "novel-forge",
+  "version": "1.0.0",
+  "description": "AI-assisted novel writer web app",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "server:dev": "tsx watch server/src/index.ts",
+    "client:dev": "vite client",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "tsc -p client && vite build client --outDir ../server/dist/public",
+    "build:server": "tsc -p server",
+    "start": "node server/dist/index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.12.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "docx": "^8.5.0",
+    "epub-gen-memory": "^1.0.9",
+    "express": "^4.19.2",
+    "pdf-lib": "^1.17.1",
+    "pdfkit": "^0.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.2",
+    "lucide-react": "^0.378.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "@types/pdfkit": "^0.13.4",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.4.38",
+    "prisma": "^5.12.1",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "tsx": "^4.7.2",
+    "vite": "^5.2.10"
+  }
+}

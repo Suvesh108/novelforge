@@ -1,0 +1,214 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Novel {
+  id                 String               @id @default(uuid())
+  title              String
+  genre              String
+  subgenre           String?
+  tone               String               // Store as JSON array of strings
+  premise            String
+  themes             String               // Store as JSON array of strings
+  status             String               @default("planning") // planning, writing, completed
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  providerSettings   String?              // Store as JSON string for ProviderSettings
+
+  mainCharacter      MainCharacter?
+  importantCharacters ImportantCharacter[]
+  world              World?
+  magicSystem        MagicSystem?
+  storyRequirements  StoryRequirements?
+  chapterConfig      ChapterConfig?
+  storyBible         String?              // StoryBible JSON
+  chapters           Chapter[]
+  openThreads        OpenThread[]
+}
+
+model MainCharacter {
+  id                   String  @id @default(uuid())
+  novelId              String  @unique
+  novel                Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  name                 String?
+  age                  String?
+  gender               String?
+  personality          String?
+  appearance           String?
+  background           String?
+  family               String?
+  occupation           String?
+  skills               String?
+  strengths            String?
+  weaknesses           String?
+  goals                String?
+  fears                String?
+  motivation           String?
+  characterDevelopment String?
+  specialAbilities     String?
+  secrets              String?
+  relationships        String? // JSON string
+}
+
+model ImportantCharacter {
+  id                       String  @id @default(uuid())
+  novelId                  String
+  novel                    Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  name                     String
+  role                     String?
+  relationshipToProtagonist String?
+  importanceToStory        String?
+  description              String?
+}
+
+model World {
+  id                 String  @id @default(uuid())
+  novelId            String  @unique
+  novel              Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  worldName          String?
+  worldType          String?
+  era                String?
+  techLevel          String?
+  geography          String?
+  politicalStructure String?
+  socialStructure    String?
+  economy            String?
+  religion           String?
+  culture            String?
+  races              String? // JSON string
+  languages          String? // JSON string
+  importantLocations String? // JSON string
+  history            String?
+  majorConflicts     String?
+}
+
+model MagicSystem {
+  id              String  @id @default(uuid())
+  novelId         String  @unique
+  novel           Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  source          String?
+  elements        String? // JSON string
+  manaRules       String?
+  levels          String?
+  restrictions    String?
+  costs           String?
+  spells          String? // JSON string
+  magicalCreatures String? // JSON string
+  rareAbilities   String? // JSON string
+}
+
+model StoryRequirements {
+  id                       String @id @default(uuid())
+  novelId                  String @unique
+  novel                    Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  thingsIWant              String @default("")
+  thingsIDontWant          String @default("")
+  minImportantCharacters   Int    @default(0)
+}
+
+model ChapterConfig {
+  id                    String @id @default(uuid())
+  novelId               String @unique
+  novel                 Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  totalChapters         Int    @default(10)
+  lengthMode            String @default("medium") // short, medium, long, custom
+  targetWordCount       Int    @default(3000)
+  audioDurationMinutes  Int    @default(15)
+  speakingSpeedWPM      Int    @default(150)
+}
+
+model ChapterOutline {
+  id                        String   @id @default(uuid())
+  chapterId                 String   @unique
+  chapter                   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  chapterNumber             Int
+  title                     String
+  location                  String?
+  time                      String?
+  charactersAppearing       String?  // JSON string
+  mainEvents                String?  // JSON string
+  emotionalPurpose          String?
+  importantDialogueMoments String?  // JSON string
+  characterDevelopmentNotes String?
+  foreshadowing             String?
+  endingHook                String?
+  estimatedWordCount        Int      @default(3000)
+}
+
+model Chapter {
+  id               String           @id @default(uuid())
+  novelId          String
+  novel            Novel            @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapterNumber    Int
+  title            String
+  content          String           @default("")
+  wordCount        Int              @default(0)
+  status           String           @default("outline") // outline, drafted, edited, final
+  currentVersionId String?
+
+  outline          ChapterOutline?
+  versions         ChapterVersion[]
+  summary          ChapterSummary?
+  characterStates  CharacterState[]
+  worldStates      WorldState[]
+}
+
+model ChapterVersion {
+  id             String   @id @default(uuid())
+  chapterId      String
+  chapter        Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  versionNumber  Int
+  content        String
+  createdAt      DateTime @default(now())
+  generationMode String   @default("normal") // normal, continue, rewrite, etc.
+}
+
+model ChapterSummary {
+  id          String  @id @default(uuid())
+  chapterId   String  @unique
+  chapter     Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  summaryText String
+}
+
+model CharacterState {
+  id            String  @id @default(uuid())
+  chapterId     String
+  chapter       Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  characterId   String
+  location      String?
+  age           String?
+  relationships String? // JSON string
+  knowledge     String? // JSON string
+  injuries      String? // JSON string
+  possessions   String? // JSON string
+  abilities     String? // JSON string
+  emotionalState String?
+  keyDecisions  String? // JSON string
+}
+
+model WorldState {
+  id               String  @id @default(uuid())
+  chapterId        String
+  chapter          Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  politicalChanges String? // JSON string
+  newLocations     String? // JSON string
+  discoveries      String? // JSON string
+  conflicts        String? // JSON string
+  techChanges      String? // JSON string
+  magicDiscoveries String? // JSON string
+}
+
+model OpenThread {
+  id                 String  @id @default(uuid())
+  novelId            String
+  novel              Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  type               String // mystery, promise, conflict, foreshadowing, goal
+  description        String
+  status             String  @default("open") // open, resolved
+  resolvedInChapterId String?
+}
