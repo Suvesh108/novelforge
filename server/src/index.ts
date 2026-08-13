@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import mammoth from "mammoth";
-const pdfParse = (typeof require !== "undefined" ? require : (global as any).require)("pdf-parse");
+import * as pdfModule from "pdf-parse";
 import { fileURLToPath } from "url";
 import { PrismaClient } from "@prisma/client";
 import { ProviderFactory } from "./ai/providers.js";
@@ -729,12 +729,13 @@ async function extractText(filename: string, base64Data: string): Promise<string
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } else if (ext === ".pdf") {
-    let parsedFunc = pdfParse;
-    if (typeof parsedFunc !== "function" && parsedFunc && typeof (parsedFunc as any).default === "function") {
-      parsedFunc = (parsedFunc as any).default;
-    }
-    const data = await (parsedFunc as any)(buffer);
-    return data.text;
+    // pdf-parse v2.x uses a class-based API: pass data in constructor options
+    const PDFParse = (pdfModule as any).PDFParse;
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
+    await parser.load();
+    const result = await parser.getText();
+    // getText() returns an object { text, pages, total }; extract the text string
+    return typeof result === "string" ? result : (result?.text || "");
   } else {
     return buffer.toString("utf-8");
   }

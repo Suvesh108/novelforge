@@ -66,6 +66,7 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
     - Integrated `mammoth` and `pdf-parse` libraries into [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) to parse raw text strings from PDF, Word (.docx), and text (.txt, .md) file attachments.
     - Added an AI story extractor prompt block `"IMPORT_STORY"` in [assembler.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/prompts/assembler.ts) to read the extracted file strings and output complete, structured JSON representations of the story bibles, characters, settings, and outlines.
     - Built a dashboard setup toggle in [Dashboard.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Dashboard.tsx) allowing users to either walk through the adaptive questionnaire manually, or upload a synopsis/notes file directly to build and launch the project workspace in seconds.
+    - Fixed the `pdf-parse` ESM default import wrapper mismatch runtime crash in [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) using compile-safe dynamic require loader and defensive function check execution wrappers.
 
 14. **Active Project Isolation Guards & Story Expansion Engine:**
     - Configured conditional `useEffect` hooks in [SetupFlow.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/SetupFlow.tsx) that clean up and refresh the questionnaire input forms immediately upon changing active novel IDs.
