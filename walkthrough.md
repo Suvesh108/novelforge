@@ -67,6 +67,11 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
     - Added an AI story extractor prompt block `"IMPORT_STORY"` in [assembler.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/prompts/assembler.ts) to read the extracted file strings and output complete, structured JSON representations of the story bibles, characters, settings, and outlines.
     - Built a dashboard setup toggle in [Dashboard.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Dashboard.tsx) allowing users to either walk through the adaptive questionnaire manually, or upload a synopsis/notes file directly to build and launch the project workspace in seconds.
 
+14. **Active Project Isolation Guards & Story Expansion Engine:**
+    - Configured conditional `useEffect` hooks in [SetupFlow.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/SetupFlow.tsx) that clean up and refresh the questionnaire input forms immediately upon changing active novel IDs.
+    - Fixed view loading layout errors by adding active project null check guards across Setup Flow, Story Bible, and Editor pages, rendering a friendly redirection message if no active project is loaded.
+    - Developed a **POST /api/novels/:id/expand-bible** server endpoint and **Add Story/Arc Idea** button modal in [StoryBible.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/StoryBible.tsx) to merge new narrative plot arcs into the story bible and auto-create outlines for subsequent chapters.
+
 ## Verification & Testing
 
 1. **Compilation Check:**

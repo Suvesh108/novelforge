@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import mammoth from "mammoth";
-import pdfParse from "pdf-parse";
+const pdfParse = (typeof require !== "undefined" ? require : (global as any).require)("pdf-parse");
 import { fileURLToPath } from "url";
 import { PrismaClient } from "@prisma/client";
 import { ProviderFactory } from "./ai/providers.js";
@@ -729,7 +729,11 @@ async function extractText(filename: string, base64Data: string): Promise<string
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } else if (ext === ".pdf") {
-    const data = await (pdfParse as any)(buffer);
+    let parsedFunc = pdfParse;
+    if (typeof parsedFunc !== "function" && parsedFunc && typeof (parsedFunc as any).default === "function") {
+      parsedFunc = (parsedFunc as any).default;
+    }
+    const data = await (parsedFunc as any)(buffer);
     return data.text;
   } else {
     return buffer.toString("utf-8");
