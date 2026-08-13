@@ -158,7 +158,12 @@ export default function App() {
       temperature: Number(temp),
     };
     
+    // Write legacy single-key format (used by resolvers as fallback)
     localStorage.setItem("novel-forge-api-settings", JSON.stringify(settings));
+    // Write active provider + model so all resolver paths find the key
+    localStorage.setItem("novel-forge-active-provider", provider);
+    localStorage.setItem(`novel-forge-active-model-${provider}`, model);
+    localStorage.setItem(`novel-forge-active-temp-${provider}`, String(temp));
 
     if (currentNovel) {
       await updateNovel(currentNovel.id, { providerSettings: settings } as any);
@@ -166,6 +171,7 @@ export default function App() {
 
     setShowApiModal(false);
   };
+
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 transition-colors duration-200">

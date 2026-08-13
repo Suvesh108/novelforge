@@ -45,32 +45,41 @@ export default function Dashboard() {
     setIsImporting(true);
     setErrorMsg("");
 
+    // Resolve active provider settings from localStorage (all formats)
+    function resolveSettings(): any | null {
+      try {
+        const rawKeys = localStorage.getItem("novel-forge-stored-keys");
+        const activeProvider = localStorage.getItem("novel-forge-active-provider") || "gemini";
+        if (rawKeys) {
+          const parsed = JSON.parse(rawKeys);
+          const keysList: any[] = parsed[activeProvider] || [];
+          const activeKey = keysList.find((k: any) => k.isActive)?.key || keysList[0]?.key || "";
+          if (activeKey) {
+            const activeModel = localStorage.getItem(`novel-forge-active-model-${activeProvider}`) || "gemini-1.5-flash";
+            const activeTemp = parseFloat(localStorage.getItem(`novel-forge-active-temp-${activeProvider}`) || "0.7");
+            return { provider: activeProvider, apiKeyRef: activeKey, model: activeModel, temperature: activeTemp };
+          }
+        }
+        // Fallback: the Save button stores settings here
+        const legacy = localStorage.getItem("novel-forge-api-settings");
+        return legacy ? JSON.parse(legacy) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    const activeSettings = resolveSettings();
+    if (!activeSettings || !activeSettings.apiKeyRef) {
+      setErrorMsg("No API key configured. Please open the API Settings (key icon in the top bar) and add your API key first.");
+      setIsImporting(false);
+      return;
+    }
+
     try {
       const reader = new FileReader();
       reader.onload = async (evt) => {
         const rawResult = evt.target?.result as string;
         const base64Data = rawResult.split(",")[1] || rawResult;
-
-        const rawKeys = localStorage.getItem("novel-forge-stored-keys");
-        let activeSettings = null;
-        if (rawKeys) {
-          try {
-            const parsed = JSON.parse(rawKeys);
-            const activeProvider = localStorage.getItem("novel-forge-active-provider") || "gemini";
-            const keysList = parsed[activeProvider] || [];
-            const activeKey = keysList.find((k: any) => k.isActive)?.key || keysList[0]?.key || "";
-            const activeModel = localStorage.getItem(`novel-forge-active-model-${activeProvider}`) || "gemini-1.5-flash";
-            const activeTemp = parseFloat(localStorage.getItem(`novel-forge-active-temp-${activeProvider}`) || "0.7");
-            activeSettings = {
-              provider: activeProvider,
-              apiKeyRef: activeKey,
-              model: activeModel,
-              temperature: activeTemp
-            };
-          } catch (err) {
-            console.error("Local storage keys parse error:", err);
-          }
-        }
 
         try {
           await importNovel(fileToImport.name, base64Data, activeSettings);
