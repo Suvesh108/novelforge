@@ -56,6 +56,11 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
     - Created a formatting cleanser `cleanMarkdownSymbols` inside [StoryBible.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/StoryBible.tsx) that strips markdown raw tags (`#`, `-`, `*`) from text views.
     - Fixed floating Back button overlap in [Editor.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Editor.tsx) left sidebar by inserting a conditional top spacing block when navigation history is present.
 
+12. **Draft Sync Order & Sequential Book Generation:**
+    - Fixed the asynchronous race condition during base draft generation where the server sent the end-of-stream event (`res.end()`) *before* executing background database commits. Completed database updates synchronously in [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) prior to ending the HTTP connection.
+    - Included `chapters` in the returns list of the `PATCH /api/novels/:id` route, fixing the visual bug where chapter outlines failed to populate the Outline Map immediately upon approval.
+    - Developed a **Draft Book** sequential bulk generator that walks through each novel chapter dynamically, streaming the total book progress overlays on the editor.
+
 ## Verification & Testing
 
 1. **Compilation Check:**
