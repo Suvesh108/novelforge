@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 import { fileURLToPath } from "url";
 import { PrismaClient } from "@prisma/client";
 import { ProviderFactory } from "./ai/providers.js";
@@ -715,6 +717,127 @@ app.get("/api/novels/:id/export/:format", async (req, res) => {
 
     res.status(400).json({ error: "Unsupported format" });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+async function extractText(filename: string, base64Data: string): Promise<string> {
+  const buffer = Buffer.from(base64Data, "base64");
+  const ext = path.extname(filename).toLowerCase();
+
+  if (ext === ".docx") {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
+  } else if (ext === ".pdf") {
+    const data = await (pdfParse as any)(buffer);
+    return data.text;
+  } else {
+    return buffer.toString("utf-8");
+  }
+}
+
+app.post("/api/novels/import", async (req, res) => {
+  const { filename, base64Data, providerSettings } = req.body;
+  if (!filename || !base64Data) {
+    return res.status(400).json({ error: "Filename and base64Data are required." });
+  }
+
+  try {
+    const extractedText = await extractText(filename, base64Data);
+
+    const provider = ProviderFactory.getProvider(
+      providerSettings ? JSON.stringify(providerSettings) : null
+    );
+
+    const { systemPrompt, userPrompt } = assemblePrompt("IMPORT_STORY", {
+      novel: {} as any,
+      selectedText: extractedText,
+    } as any);
+
+    const aiOutput = await provider.generate(userPrompt, systemPrompt);
+    const jsonStart = aiOutput.indexOf("{");
+    const jsonEnd = aiOutput.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("AI failed to return structured project configuration. Output was:\n" + aiOutput);
+    }
+
+    const data = JSON.parse(aiOutput.slice(jsonStart, jsonEnd + 1));
+
+    const novel = await prisma.novel.create({
+      data: {
+        title: data.title || filename.split(".")[0] || "Imported Story",
+        genre: data.genre || "General Fiction",
+        subgenre: data.subgenre || "",
+        tone: JSON.stringify(data.tones || []),
+        themes: JSON.stringify(data.themes || []),
+        premise: data.premise || "Core premise...",
+        status: "writing",
+        storyBible: data.storyBible || "",
+        providerSettings: providerSettings ? JSON.stringify(providerSettings) : undefined,
+        mainCharacter: {
+          create: {
+            name: data.protagonist?.name || "Protagonist",
+            occupation: data.protagonist?.role || "Hero",
+            motivation: data.protagonist?.motivations || "",
+            background: data.protagonist?.backstory || "",
+            characterDevelopment: data.protagonist?.characterArc || "",
+          }
+        },
+        world: {
+          create: {
+            history: data.world?.setting || "",
+            majorConflicts: data.world?.rules || "",
+          }
+        },
+        magicSystem: {
+          create: {
+            source: data.magicSystem?.name || "",
+            manaRules: data.magicSystem?.rules || "",
+          }
+        },
+        storyRequirements: {
+          create: {
+            thingsIWant: `Themes: ${JSON.stringify(data.themes || [])}`,
+            thingsIDontWant: "",
+          }
+        },
+        chapterConfig: {
+          create: {
+            targetWordCount: 2000,
+            audioDurationMinutes: 15,
+            speakingSpeedWPM: 150,
+          }
+        },
+        chapters: {
+          create: (data.chapters || []).map((ch: any) => ({
+            chapterNumber: ch.chapterNumber,
+            title: ch.title || `Chapter ${ch.chapterNumber}`,
+            status: "outline",
+            outline: {
+              create: {
+                chapterNumber: ch.chapterNumber,
+                title: ch.title || `Chapter ${ch.chapterNumber}`,
+                mainEvents: JSON.stringify([ch.outline || "Outline plan..."]),
+              }
+            }
+          }))
+        }
+      },
+      include: {
+        mainCharacter: true,
+        world: true,
+        magicSystem: true,
+        storyRequirements: true,
+        chapterConfig: true,
+        chapters: {
+          orderBy: { chapterNumber: "asc" }
+        }
+      }
+    });
+
+    res.json(novel);
+  } catch (error: any) {
+    console.error("Import error:", error);
     res.status(500).json({ error: error.message });
   }
 });

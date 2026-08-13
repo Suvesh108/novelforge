@@ -3,13 +3,17 @@ import { useStore } from "../store.ts";
 import { BookOpen, FileText, LayoutDashboard, Plus, Download, Sparkles, AlertCircle, Trash2 } from "lucide-react";
 
 export default function Dashboard() {
-  const { novels, currentNovel, fetchNovels, fetchNovel, createNovel, deleteNovel, setView, setDarkMode, darkMode } = useStore();
+  const { novels, currentNovel, fetchNovels, fetchNovel, createNovel, deleteNovel, setView, setDarkMode, darkMode, importNovel } = useStore();
   const [showNewModal, setShowNewModal] = useState(false);
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("Fantasy");
   const [premise, setPremise] = useState("");
   const [exportFormat, setExportFormat] = useState("pdf");
   const [errorMsg, setErrorMsg] = useState("");
+
+  const [creationMode, setCreationMode] = useState<"manual" | "import">("manual");
+  const [fileToImport, setFileToImport] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     fetchNovels();
@@ -25,6 +29,68 @@ export default function Dashboard() {
       setPremise("");
     } catch (e: any) {
       console.error(e);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFileToImport(e.target.files[0]);
+    }
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fileToImport) return;
+
+    setIsImporting(true);
+    setErrorMsg("");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const rawResult = evt.target?.result as string;
+        const base64Data = rawResult.split(",")[1] || rawResult;
+
+        const rawKeys = localStorage.getItem("novel-forge-stored-keys");
+        let activeSettings = null;
+        if (rawKeys) {
+          try {
+            const parsed = JSON.parse(rawKeys);
+            const activeProvider = localStorage.getItem("novel-forge-active-provider") || "gemini";
+            const keysList = parsed[activeProvider] || [];
+            const activeKey = keysList.find((k: any) => k.isActive)?.key || keysList[0]?.key || "";
+            const activeModel = localStorage.getItem(`novel-forge-active-model-${activeProvider}`) || "gemini-1.5-flash";
+            const activeTemp = parseFloat(localStorage.getItem(`novel-forge-active-temp-${activeProvider}`) || "0.7");
+            activeSettings = {
+              provider: activeProvider,
+              apiKeyRef: activeKey,
+              model: activeModel,
+              temperature: activeTemp
+            };
+          } catch (err) {
+            console.error("Local storage keys parse error:", err);
+          }
+        }
+
+        try {
+          await importNovel(fileToImport.name, base64Data, activeSettings);
+          setShowNewModal(false);
+          setCreationMode("manual");
+          setFileToImport(null);
+        } catch (err: any) {
+          setErrorMsg(err.message || "Failed to parse and import story.");
+        } finally {
+          setIsImporting(false);
+        }
+      };
+      reader.onerror = () => {
+        setErrorMsg("Failed to read the file.");
+        setIsImporting(false);
+      };
+      reader.readAsDataURL(fileToImport);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to process import file.");
+      setIsImporting(false);
     }
   };
 
@@ -261,73 +327,164 @@ export default function Dashboard() {
                 Start a New Story
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-450 font-medium">
-                Answer simple AI prompts to outline characters, world maps, and plots.
+                Bootstrap your novel project manually or extract from an existing outline draft.
               </p>
             </div>
 
-            <form onSubmit={handleStartNovel} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  Story Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. The Iron Chronicle"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
-                />
-              </div>
+            <div className="flex border-b border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => { setCreationMode("manual"); setErrorMsg(""); }}
+                className={`flex-1 pb-2 text-xs font-bold border-b-2 transition ${
+                  creationMode === "manual"
+                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                    : "border-transparent text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                Guided Questionnaire
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCreationMode("import"); setErrorMsg(""); }}
+                className={`flex-1 pb-2 text-xs font-bold border-b-2 transition ${
+                  creationMode === "import"
+                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                    : "border-transparent text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                Import Existing Notes / Synopsis
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  Genre
-                </label>
-                <select
-                  value={genre}
-                  onChange={(e) => setGenre(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
-                >
-                  <option value="Fantasy">Fantasy</option>
-                  <option value="Sci-Fi">Sci-Fi</option>
-                  <option value="Mystery">Mystery</option>
-                  <option value="Thriller">Thriller</option>
-                  <option value="Horror">Horror</option>
-                  <option value="General Fiction">General Fiction</option>
-                </select>
-              </div>
+            {creationMode === "import" ? (
+              <form onSubmit={handleImportSubmit} className="space-y-4">
+                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-6 text-center hover:border-indigo-500 transition relative bg-slate-50 dark:bg-slate-950">
+                  <input
+                    type="file"
+                    accept=".txt,.md,.pdf,.docx"
+                    required
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div className="space-y-2">
+                    <div className="flex justify-center text-slate-400">
+                      <Plus className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      {fileToImport ? fileToImport.name : "Click or drag synopsis/draft file to upload"}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Supports Text (.txt, .md), Word (.docx), or PDF (.pdf) files
+                    </p>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  Story Idea / Core Premise
-                </label>
-                <textarea
-                  required
-                  value={premise}
-                  onChange={(e) => setPremise(e.target.value)}
-                  placeholder="Write a few lines about the main conflict, protagonist, or setting..."
-                  rows={4}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
-                />
-              </div>
+                {isImporting && (
+                  <div className="text-center text-xs text-indigo-600 dark:text-indigo-400 font-bold animate-pulse">
+                    Parsing file and constructing story outline map... (this may take up to 20 seconds)
+                  </div>
+                )}
 
-              <div className="flex items-center justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewModal(false)}
-                  className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline px-3 py-2"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded text-xs transition"
-                >
-                  Start Project
-                </button>
-              </div>
-            </form>
+                {errorMsg && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold">
+                    <AlertCircle className="w-4 h-4" />
+                    {errorMsg}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewModal(false);
+                      setCreationMode("manual");
+                      setFileToImport(null);
+                    }}
+                    className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline px-3 py-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isImporting || !fileToImport}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded text-xs transition disabled:opacity-50"
+                  >
+                    {isImporting ? "Analyzing..." : "Magic Import & Build Project"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleStartNovel} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                    Story Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. The Iron Chronicle"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                    Genre
+                  </label>
+                  <select
+                    value={genre}
+                    onChange={(e) => setGenre(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
+                  >
+                    <option value="Fantasy">Fantasy</option>
+                    <option value="Sci-Fi">Sci-Fi</option>
+                    <option value="Mystery">Mystery</option>
+                    <option value="Thriller">Thriller</option>
+                    <option value="Horror">Horror</option>
+                    <option value="General Fiction">General Fiction</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                    Story Idea / Core Premise
+                  </label>
+                  <textarea
+                    required
+                    value={premise}
+                    onChange={(e) => setPremise(e.target.value)}
+                    placeholder="Write a few lines about the main conflict, protagonist, or setting..."
+                    rows={4}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-sm"
+                  />
+                </div>
+
+                {errorMsg && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold">
+                    <AlertCircle className="w-4 h-4" />
+                    {errorMsg}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewModal(false)}
+                    className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline px-3 py-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded text-xs transition"
+                  >
+                    Start Project
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

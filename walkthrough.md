@@ -60,6 +60,7 @@ NovelForge has been successfully updated to incorporate the detailed parameters 
     - Fixed the asynchronous race condition during base draft generation where the server sent the end-of-stream event (`res.end()`) *before* executing background database commits. Completed database updates synchronously in [index.ts](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/server/src/index.ts) prior to ending the HTTP connection.
     - Included `chapters` in the returns list of the `PATCH /api/novels/:id` route, fixing the visual bug where chapter outlines failed to populate the Outline Map immediately upon approval.
     - Developed a **Draft Book** sequential bulk generator that walks through each novel chapter dynamically, streaming the total book progress overlays on the editor.
+    - Fixed draft generation display lag by forcing immediate copy of active chapter contents from Zustand store upon completion of generator triggers in [Editor.tsx](file:///c:/Users/Suvesh/Desktop/projects/novelExtractor/client/src/components/Editor.tsx).
 
 ## Verification & Testing
 

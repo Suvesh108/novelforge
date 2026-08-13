@@ -41,7 +41,7 @@ export function assemblePrompt(task: string, ctx: StoryContext): { systemPrompt:
     modeInstruction = "\nWriting Mode: NORMAL. Maintain balanced pacing, standard description depth, and natural story flow.";
   }
 
-  const systemInstructions = `You are a professional, bestselling novelist writing strictly in a natural human language tone.
+  let systemInstructions = `You are a professional, bestselling novelist writing strictly in a natural human language tone.
 Your output must be dedicated solely to writing and story planning purposes.
 Maintain absolute continuity and consistency by strictly adhering to the memory parameters provided (prior chapter summaries, character states, world states, and open threads) for this particular novel.
 Avoid all meta-commentary, introductory notes, or conversational filler. Output ONLY the requested content directly.${modeInstruction}`;
@@ -256,6 +256,49 @@ List any continuity flags found with suggestions for corrections.`;
       userPrompt = `Suggest 3-4 interesting plot hooks, character decisions, or twist options for what could happen next in the story based on the current context.
 Context:
 "${ctx.selectedText || "The current scene development"}"`;
+      break;
+    }
+
+    case "IMPORT_STORY": {
+      systemInstructions = `You are an expert AI Story Architect and Editor.
+Your task is to analyze the provided source material (notes, synopsis, or manuscript text) and extract the structured configuration for a new Novel project.
+
+You must return a valid JSON object matching the following structure. Output ONLY the JSON block, no other text or commentary:
+{
+  "title": "Clean Story Title",
+  "genre": "Fantasy / Sci-Fi / Mystery / Thriller / Horror / General Fiction",
+  "subgenre": "Subgenre if applicable",
+  "premise": "A concise 1-2 sentence core premise",
+  "tones": ["Theme1", "Theme2"],
+  "themes": ["Theme1", "Theme2"],
+  "protagonist": {
+    "name": "Main character name",
+    "role": "Role in the story",
+    "motivations": "Core driver/desire",
+    "backstory": "Brief background summary",
+    "characterArc": "Brief growth trajectory"
+  },
+  "world": {
+    "setting": "World details",
+    "rules": "World rules/laws"
+  },
+  "magicSystem": {
+    "name": "Magic system name",
+    "rules": "Magic system rules"
+  },
+  "storyBible": "A detailed Story Bible summarizing character profiles, world configuration, lore, and plot dynamics based on the source material.",
+  "chapters": [
+    {
+      "chapterNumber": 1,
+      "title": "Chapter Title",
+      "outline": "Summary of main events for this chapter"
+    }
+  ]
+}`;
+      userPrompt = `Source material text to analyze:
+---
+${ctx.selectedText}
+---`;
       break;
     }
   }

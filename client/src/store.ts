@@ -65,6 +65,7 @@ interface AppStore {
   generateOutline: (id: string) => Promise<void>;
   generateChapter: (id: string, chapterNumber: number) => Promise<void>;
   generateWholeNovel: (id: string) => Promise<void>;
+  importNovel: (filename: string, base64Data: string, providerSettings: any) => Promise<any>;
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -419,6 +420,36 @@ export const useStore = create<AppStore>((set, get) => ({
       set({ isGenerating: false, streamingText: "" });
     } catch (err: any) {
       set({ isGenerating: false, streamingText: "", error: err.message });
+    }
+  },
+
+  importNovel: async (filename, base64Data, providerSettings) => {
+    try {
+      set({ isGenerating: true, error: null });
+      const res = await fetch("/api/novels/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, base64Data, providerSettings }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to import story file.");
+      }
+
+      const novel = await res.json();
+      set({
+        currentNovel: novel,
+        currentChapterId: novel.chapters?.[0]?.id || null,
+        isGenerating: false,
+        activeView: "editor",
+        viewHistory: [...get().viewHistory, "editor"],
+      });
+      await get().fetchNovels();
+      return novel;
+    } catch (err: any) {
+      set({ isGenerating: false, error: err.message });
+      throw err;
     }
   },
 }));
