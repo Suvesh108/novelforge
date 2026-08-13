@@ -2,6 +2,16 @@ import React, { useState } from "react";
 import { useStore } from "../store.ts";
 import { BookOpen, FileSpreadsheet, Check, Edit3, Sparkles } from "lucide-react";
 
+function cleanMarkdownSymbols(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/^#+\s+/gm, "")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/#/g, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1");
+}
+
 export default function StoryBible() {
   const { currentNovel, updateNovel, setView, isGenerating } = useStore();
   const [activeTab, setActiveTab] = useState<"bible" | "outlines">("bible");
@@ -90,7 +100,7 @@ export default function StoryBible() {
               />
             ) : (
               <div className="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 overflow-y-auto max-h-[500px] pr-2 space-y-4 whitespace-pre-wrap leading-relaxed font-serif text-base">
-                {currentNovel.storyBible || "No Story Bible generated yet. Configure options in setup flow."}
+                {cleanMarkdownSymbols(currentNovel.storyBible || "No Story Bible generated yet. Configure options in setup flow.")}
               </div>
             )}
           </div>
@@ -117,7 +127,7 @@ export default function StoryBible() {
                   <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
                     <p className="font-semibold text-slate-655 dark:text-slate-350">Outline Plan:</p>
                     <p className="line-clamp-4 italic whitespace-pre-wrap">
-                      {JSON.parse(ch.outline.mainEvents)[0] || ""}
+                      {cleanMarkdownSymbols(JSON.parse(ch.outline.mainEvents)[0] || "")}
                     </p>
                   </div>
                 )}

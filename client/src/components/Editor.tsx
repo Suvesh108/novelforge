@@ -35,6 +35,7 @@ export default function Editor() {
     deleteChapter,
     duplicateChapter,
     reorderChapter,
+    viewHistory,
   } = useStore();
 
   const [activeChapter, setActiveChapter] = useState<any>(null);
@@ -167,6 +168,7 @@ export default function Editor() {
       {/* Left Sidebar - Chapters list with actions */}
       <div className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between">
         <div className="p-4 flex-1 overflow-y-auto">
+          {viewHistory.length > 1 && <div className="h-10 flex-shrink-0" />}
           <h2 className="text-xs font-bold text-slate-450 dark:text-slate-550 tracking-wider uppercase mb-4">
             Novel Outline Map
           </h2>
