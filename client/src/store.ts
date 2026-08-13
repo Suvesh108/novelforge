@@ -69,6 +69,28 @@ interface AppStore {
   expandStoryBible: (id: string, idea: string, providerSettings: any) => Promise<void>;
 }
 
+// Read the active provider config from localStorage, built from the multi-key registry
+function getActiveProviderSettings(): any | null {
+  try {
+    const rawKeys = localStorage.getItem("novel-forge-stored-keys");
+    const activeProvider = localStorage.getItem("novel-forge-active-provider") || "gemini";
+    if (!rawKeys) {
+      // Fall back to the legacy single-key format
+      const legacy = localStorage.getItem("novel-forge-api-settings");
+      return legacy ? JSON.parse(legacy) : null;
+    }
+    const parsed = JSON.parse(rawKeys);
+    const keysList: any[] = parsed[activeProvider] || [];
+    const activeKey = keysList.find((k: any) => k.isActive)?.key || keysList[0]?.key || "";
+    if (!activeKey) return null;
+    const activeModel = localStorage.getItem(`novel-forge-active-model-${activeProvider}`) || "gemini-1.5-flash";
+    const activeTemp = parseFloat(localStorage.getItem(`novel-forge-active-temp-${activeProvider}`) || "0.7");
+    return { provider: activeProvider, apiKeyRef: activeKey, model: activeModel, temperature: activeTemp };
+  } catch {
+    return null;
+  }
+}
+
 export const useStore = create<AppStore>((set, get) => ({
   novels: [],
   currentNovel: null,
@@ -317,7 +339,11 @@ export const useStore = create<AppStore>((set, get) => ({
   askSetupQuestion: async (id) => {
     try {
       set({ isGenerating: true, error: null });
-      const res = await fetch(`/api/novels/${id}/question`, { method: "POST" });
+      const res = await fetch(`/api/novels/${id}/question`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerSettings: getActiveProviderSettings() }),
+      });
       if (!res.ok) throw new Error("AI Questionnaire generation failed");
       const data = await res.json();
       set({ isGenerating: false });
@@ -331,7 +357,11 @@ export const useStore = create<AppStore>((set, get) => ({
   generateStoryBible: async (id) => {
     try {
       set({ isGenerating: true, error: null });
-      const res = await fetch(`/api/novels/${id}/generate-bible`, { method: "POST" });
+      const res = await fetch(`/api/novels/${id}/generate-bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerSettings: getActiveProviderSettings() }),
+      });
       if (!res.ok) throw new Error("Failed to generate Story Bible");
       const data = await res.json();
       set({ isGenerating: false });
@@ -348,7 +378,11 @@ export const useStore = create<AppStore>((set, get) => ({
   generateOutline: async (id) => {
     try {
       set({ isGenerating: true, error: null });
-      const res = await fetch(`/api/novels/${id}/generate-outline`, { method: "POST" });
+      const res = await fetch(`/api/novels/${id}/generate-outline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerSettings: getActiveProviderSettings() }),
+      });
       if (!res.ok) throw new Error("Failed to generate Chapter Outlines");
       set({ isGenerating: false });
       await get().fetchNovel(id);
@@ -363,7 +397,7 @@ export const useStore = create<AppStore>((set, get) => ({
       const res = await fetch(`/api/novels/${id}/chapters/${chapterNumber}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ writingMode: get().activeWritingMode }),
+        body: JSON.stringify({ writingMode: get().activeWritingMode, providerSettings: getActiveProviderSettings() }),
       });
 
       if (!res.ok) throw new Error("Chapter generation API failed");
@@ -398,7 +432,7 @@ export const useStore = create<AppStore>((set, get) => ({
         const res = await fetch(`/api/novels/${id}/chapters/${ch.chapterNumber}/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ writingMode: get().activeWritingMode }),
+          body: JSON.stringify({ writingMode: get().activeWritingMode, providerSettings: getActiveProviderSettings() }),
         });
 
         if (!res.ok) throw new Error(`Chapter ${ch.chapterNumber} generation failed`);

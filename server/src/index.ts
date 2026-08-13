@@ -212,6 +212,15 @@ app.post("/api/test-models", async (req, res) => {
 
 // --- AI FLOW ENDPOINTS ---
 
+// Helper: resolve the AI provider from request body first, then novel DB settings
+function resolveProvider(reqBody: any, novel: any): ReturnType<typeof ProviderFactory.getProvider> {
+  if (reqBody?.providerSettings) {
+    const ps = reqBody.providerSettings;
+    return ProviderFactory.getProvider(typeof ps === "string" ? ps : JSON.stringify(ps));
+  }
+  return ProviderFactory.getProvider(novel?.providerSettings || null);
+}
+
 app.post("/api/novels/:id/question", async (req, res) => {
   try {
     const novel = await prisma.novel.findUnique({
@@ -222,7 +231,7 @@ app.post("/api/novels/:id/question", async (req, res) => {
 
     const ctx = { novel };
     const { systemPrompt, userPrompt } = assemblePrompt("QUESTIONNAIRE", ctx);
-    const provider = ProviderFactory.getProvider(novel.providerSettings);
+    const provider = resolveProvider(req.body, novel);
     const question = await provider.generate(userPrompt, systemPrompt);
 
     res.json({ question });
@@ -255,7 +264,7 @@ app.post("/api/novels/:id/generate-bible", async (req, res) => {
     };
 
     const { systemPrompt, userPrompt } = assemblePrompt("GENERATE_STORY_BIBLE", ctx);
-    const provider = ProviderFactory.getProvider(novel.providerSettings);
+    const provider = resolveProvider(req.body, novel);
     const bibleContent = await provider.generate(userPrompt, systemPrompt);
 
     const updated = await prisma.novel.update({
@@ -290,7 +299,7 @@ app.post("/api/novels/:id/generate-outline", async (req, res) => {
     };
 
     const { systemPrompt, userPrompt } = assemblePrompt("GENERATE_CHAPTER_OUTLINE", ctx);
-    const provider = ProviderFactory.getProvider(novel.providerSettings);
+    const provider = resolveProvider(req.body, novel);
     const outlineResponse = await provider.generate(userPrompt, systemPrompt);
 
     // Parse AI outline response to split into distinct chapters and save in DB
@@ -394,7 +403,7 @@ app.post("/api/novels/:id/chapters/:number/generate", async (req, res) => {
 
     const task = req.body.task || "GENERATE_CHAPTER";
     const { systemPrompt, userPrompt } = assemblePrompt(task, ctx);
-    const provider = ProviderFactory.getProvider(novel.providerSettings);
+    const provider = resolveProvider(req.body, novel);
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Transfer-Encoding", "chunked");
