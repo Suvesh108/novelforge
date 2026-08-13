@@ -4,7 +4,7 @@ import Dashboard from "./components/Dashboard.tsx";
 import SetupFlow from "./components/SetupFlow.tsx";
 import StoryBible from "./components/StoryBible.tsx";
 import Editor from "./components/Editor.tsx";
-import { BookOpen, LayoutDashboard, Settings, FileSpreadsheet, Sparkles, Moon, Sun, Key, ArrowLeft } from "lucide-react";
+import { BookOpen, LayoutDashboard, Settings, FileSpreadsheet, Sparkles, Moon, Sun, Key, ArrowLeft, Trash2, Plus, RefreshCw } from "lucide-react";
 
 export default function App() {
   const { currentNovel, activeView, setView, goBack, viewHistory, fetchNovels, updateNovel, darkMode, setDarkMode } = useStore();
@@ -15,8 +15,21 @@ export default function App() {
   const [model, setModel] = useState("gemini-1.5-flash");
   const [temp, setTemp] = useState(0.7);
 
+  // Advanced Multi-Key & Self-Testing states
+  const [storedKeys, setStoredKeys] = useState<Record<string, Array<{ key: string; models: string[] }>>>({});
+  const [newKey, setNewKey] = useState("");
+  const [isTesting, setIsTesting] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
   useEffect(() => {
     fetchNovels();
+    const rawKeys = localStorage.getItem("novel-forge-stored-keys");
+    if (rawKeys) {
+      try {
+        setStoredKeys(JSON.parse(rawKeys));
+      } catch (e) {}
+    }
   }, []);
 
   useEffect(() => {
@@ -25,7 +38,7 @@ export default function App() {
         const settings = JSON.parse(currentNovel.providerSettings);
         setProvider(settings.provider || "gemini");
         setApiKey(settings.apiKeyRef || "");
-        setModel(settings.model || "gemini-1.5-flash");
+        setModel(settings.model || "");
         setTemp(settings.temperature ?? 0.7);
       } catch (e) {
         // Fallback silently
@@ -37,12 +50,104 @@ export default function App() {
           const settings = JSON.parse(localSettings);
           setProvider(settings.provider || "gemini");
           setApiKey(settings.apiKeyRef || "");
-          setModel(settings.model || "gemini-1.5-flash");
+          setModel(settings.model || "");
           setTemp(settings.temperature ?? 0.7);
         } catch (e) {}
       }
     }
   }, [currentNovel]);
+
+  // Sync available models and defaults when provider or keys list changes
+  useEffect(() => {
+    const keysForProvider = storedKeys[provider] || [];
+    const matchingKey = keysForProvider.find(k => k.key === apiKey);
+    if (matchingKey) {
+      setAvailableModels(matchingKey.models);
+      if (!matchingKey.models.includes(model) && matchingKey.models.length > 0) {
+        setModel(matchingKey.models[0]);
+      }
+    } else if (keysForProvider.length > 0) {
+      setApiKey(keysForProvider[0].key);
+      setAvailableModels(keysForProvider[0].models);
+      setModel(keysForProvider[0].models[0]);
+    } else {
+      setApiKey("");
+      setAvailableModels([]);
+      setModel("");
+    }
+  }, [provider, storedKeys, apiKey]);
+
+  const handleAddKey = async () => {
+    if (!newKey.trim()) return;
+    const providerKeys = storedKeys[provider] || [];
+    if (providerKeys.length >= 10) {
+      setApiError("Maximum of 10 keys allowed per provider.");
+      return;
+    }
+    if (providerKeys.some(k => k.key === newKey.trim())) {
+      setApiError("This key is already registered.");
+      return;
+    }
+
+    setIsTesting(true);
+    setApiError("");
+
+    try {
+      const res = await fetch("/api/test-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: newKey.trim() })
+      });
+
+      if (!res.ok) throw new Error("Verification probe failed");
+      const { workingModels } = await res.json();
+
+      if (!workingModels || workingModels.length === 0) {
+        setApiError("Validation failed: No working models supported on this key/tier.");
+        return;
+      }
+
+      const updatedKeys = {
+        ...storedKeys,
+        [provider]: [...providerKeys, { key: newKey.trim(), models: workingModels }]
+      };
+
+      setStoredKeys(updatedKeys);
+      localStorage.setItem("novel-forge-stored-keys", JSON.stringify(updatedKeys));
+      
+      setApiKey(newKey.trim());
+      setAvailableModels(workingModels);
+      setModel(workingModels[0]);
+      setNewKey("");
+    } catch (e: any) {
+      setApiError(e.message || "Failed to validate key. Verify network connection.");
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleDeleteKey = (keyToDelete: string) => {
+    const providerKeys = storedKeys[provider] || [];
+    const nextKeys = providerKeys.filter(k => k.key !== keyToDelete);
+    const updatedKeys = {
+      ...storedKeys,
+      [provider]: nextKeys
+    };
+    setStoredKeys(updatedKeys);
+    localStorage.setItem("novel-forge-stored-keys", JSON.stringify(updatedKeys));
+
+    if (apiKey === keyToDelete) {
+      if (nextKeys.length > 0) {
+        setApiKey(nextKeys[0].key);
+        setAvailableModels(nextKeys[0].models);
+        setModel(nextKeys[0].models[0]);
+      } else {
+        setApiKey("");
+        setAvailableModels([]);
+        setModel("");
+      }
+    }
+  };
 
   const handleSaveApi = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +282,7 @@ export default function App() {
                 AI Provider Settings
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-450 font-medium">
-                Enter your API keys manually. They are saved client-side and never exposed.
+                Add and manage up to 10 API keys. We test and list only models working for your key.
               </p>
             </div>
 
@@ -188,32 +293,100 @@ export default function App() {
                 </label>
                 <select
                   value={provider}
-                  onChange={(e) => {
-                    const p = e.target.value;
-                    setProvider(p);
-                    if (p === "gemini") setModel("gemini-1.5-flash");
-                    else if (p === "openai") setModel("gpt-4o-mini");
-                  }}
+                  onChange={(e) => setProvider(e.target.value as any)}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-800 dark:text-slate-100 text-xs font-semibold"
                 >
                   <option value="gemini">Google Gemini</option>
                   <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="groq">Groq</option>
+                  <option value="mistral">Mistral</option>
+                  <option value="cohere">Cohere</option>
                   <option value="openrouter">OpenRouter</option>
                   <option value="custom">Custom (OpenAI-compatible)</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-450 mb-1">
-                  API Key
+              {/* List of existing keys */}
+              <div className="space-y-1.5">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                  Saved API Keys (Max 10)
+                </span>
+                <div className="max-h-28 overflow-y-auto space-y-1 bg-slate-50 dark:bg-slate-950 p-2 border border-slate-250 dark:border-slate-805 rounded-lg">
+                  {(storedKeys[provider] || []).length === 0 ? (
+                    <p className="text-[10px] text-slate-400 italic">No keys saved for this provider.</p>
+                  ) : (
+                    (storedKeys[provider] || []).map((k, index) => {
+                      const isSelected = apiKey === k.key;
+                      const masked = k.key.length > 8 ? k.key.slice(0, 5) + "..." + k.key.slice(-4) : "..." + k.key.slice(-3);
+                      return (
+                        <div
+                          key={index}
+                          onClick={() => {
+                            setApiKey(k.key);
+                            setAvailableModels(k.models);
+                            if (k.models.length > 0) setModel(k.models[0]);
+                          }}
+                          className={`flex items-center justify-between p-1.5 rounded text-xs cursor-pointer border ${
+                            isSelected
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-750 dark:bg-indigo-950/40 dark:border-indigo-900"
+                              : "border-transparent text-slate-655 hover:bg-slate-100 dark:hover:bg-slate-850"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="active-key"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="accent-indigo-650"
+                            />
+                            <span className="font-semibold">{masked}</span>
+                            <span className="text-[9px] text-slate-400 font-bold">({k.models.length} models)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteKey(k.key);
+                            }}
+                            className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Paste/Add API Key Section */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-450">
+                  Register New API Key
                 </label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={apiKey ? "••••••••••••••••" : "Paste your API key here..."}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-800 dark:text-slate-100 text-xs font-semibold"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value)}
+                    placeholder="Paste key to validate & save..."
+                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-800 dark:text-slate-100 text-xs font-semibold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddKey}
+                    disabled={isTesting || !newKey.trim()}
+                    className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold flex items-center justify-center gap-1 transition disabled:opacity-50"
+                    title="Validate and Add Key"
+                  >
+                    {isTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </button>
+                </div>
+                {apiError && (
+                  <p className="text-[10px] text-rose-550 font-bold leading-tight">{apiError}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -221,13 +394,27 @@ export default function App() {
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-450 mb-1">
                     Model
                   </label>
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="e.g. gemini-1.5-flash"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-xs font-semibold"
-                  />
+                  {availableModels.length > 0 ? (
+                    <select
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-800 dark:text-slate-100 text-xs font-semibold"
+                    >
+                      {availableModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      placeholder="Add API key first..."
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-xs font-semibold"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-450 mb-1">
@@ -240,7 +427,7 @@ export default function App() {
                     min={0.0}
                     max={1.0}
                     step={0.1}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-850 dark:text-slate-100 text-xs font-semibold"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded focus:outline-none text-slate-855 dark:text-slate-100 text-xs font-semibold"
                   />
                 </div>
               </div>

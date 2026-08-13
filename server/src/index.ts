@@ -152,6 +152,59 @@ app.delete("/api/novels/:id", async (req, res) => {
   }
 });
 
+app.post("/api/test-models", async (req, res) => {
+  const { provider, apiKey } = req.body;
+  if (!provider || !apiKey) {
+    return res.status(450).json({ error: "Provider and API Key are required." });
+  }
+
+  const candidateModels: Record<string, string[]> = {
+    gemini: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"],
+    openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+    anthropic: ["claude-3-5-sonnet-20240620", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
+    groq: ["llama3-8b-8192", "llama3-70b-8192", "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"],
+    mistral: ["open-mistral-7b", "mistral-tiny", "mistral-small", "mistral-medium"],
+    cohere: ["command", "command-light", "command-r", "command-r-plus"],
+    openrouter: ["google/gemma-2-9b-it:free", "meta-llama/llama-3-8b-instruct:free", "mistralai/mistral-7b-instruct:free", "openrouter/auto"],
+    custom: ["custom"]
+  };
+
+  const models = candidateModels[provider] || [];
+  const workingModels: string[] = [];
+
+  await Promise.all(
+    models.map(async (model) => {
+      try {
+        const instance = ProviderFactory.getProvider(
+          JSON.stringify({
+            provider,
+            apiKeyRef: apiKey,
+            model,
+            temperature: 0.0,
+            maxOutputTokens: 1,
+          })
+        );
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        await Promise.race([
+          instance.generate("ping"),
+          new Promise((_, reject) => {
+            controller.signal.addEventListener("abort", () => reject(new Error("Timeout")));
+          }),
+        ]);
+
+        clearTimeout(timeoutId);
+        workingModels.push(model);
+      } catch (err) {
+        // Exclude failed model
+      }
+    })
+  );
+
+  res.json({ workingModels });
+});
+
 // --- AI FLOW ENDPOINTS ---
 
 app.post("/api/novels/:id/question", async (req, res) => {
